@@ -23,8 +23,12 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   File? _image;
   Uint8List? _imageBytes;
+  String? _imageName;
   final picker = ImagePicker();
   late CloudApi _api;
+
+  bool isUploaded = false;
+  bool loading = false;
 
   @override
   void initState() {
@@ -41,7 +45,7 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // void _saveImage() async {
+  // void saveImage() async {
   //   if (_imageBytes != null) {
   //     final response = await _api.save('test', _imageBytes!);
   //     print(response.downloadLink);
@@ -49,9 +53,12 @@ class _HomePageState extends State<HomePage> {
   // }
 
   void _saveImage() async {
+    setState(() {
+      loading = true;
+    });
     try {
       if (_imageBytes != null) {
-        final response = await _api.save('test', _imageBytes!);
+        final response = await _api.save(_imageName!, _imageBytes!);
         print('Image uploaded successfully. Download link: ${response.downloadLink}');
       } else {
         print('No image data available to upload.');
@@ -59,17 +66,23 @@ class _HomePageState extends State<HomePage> {
     } catch (e) {
       print('Error uploading image: $e');
     }
+    setState(() {
+      loading = false;
+      isUploaded = true;
+    });
   }
 
 
   void _getImage() async {
-    final pickedFile = await picker.pickImage(source: ImageSource.camera);
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
     setState(() {
       if (pickedFile != null) {
         print(pickedFile.path);
         _image = File(pickedFile.path);
         _imageBytes = _image!.readAsBytesSync();
+        _imageName = _image!.path.split('/').last;
+        isUploaded = false;
       } else {
         print('No Image Selected');
       }
@@ -88,7 +101,24 @@ class _HomePageState extends State<HomePage> {
               : Stack(
             children: [
               Image.memory(_imageBytes!),
-              Align(
+              if(loading)
+                Center(
+                    child: CircularProgressIndicator(),
+                  ),
+               isUploaded
+                ? Center(
+                  child:CircleAvatar(
+                    radius: 40,
+                    backgroundColor: Colors.green,
+                    child: Icon(
+                      Icons.check,
+                      color: Colors.white,
+                      size: 60,
+                    ),
+                  ),
+                )
+
+            :  Align(
                 alignment: Alignment.bottomCenter,
                 child: ElevatedButton(
                   onPressed: _saveImage,

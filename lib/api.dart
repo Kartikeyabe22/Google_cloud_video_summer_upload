@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:gcloud/storage.dart';
 import 'package:googleapis_auth/auth_io.dart' as auth;
+import 'package:mime/mime.dart';
 
 class CloudApi {
  final auth.ServiceAccountCredentials _credentials;
@@ -21,7 +22,14 @@ class CloudApi {
    var bucket = storage.bucket('mybucket_12345');
 
    // Save to the bucket
-   return await bucket.writeBytes(name, imgBytes);
+   final timestamp = DateTime.now().millisecondsSinceEpoch;
+   final type = lookupMimeType(name);
+   return await bucket.writeBytes(name, imgBytes, metadata: ObjectMetadata(
+    contentType: type,
+    custom: {
+     'timestamp': '$timestamp'
+    }
+   ));
   } catch (e) {
    print('Error in save method: $e');
    rethrow; // Rethrow the exception for higher-level handling
