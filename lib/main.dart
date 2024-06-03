@@ -134,7 +134,7 @@ class _HomePageState extends State<HomePage> {
           if (_api != null) {
             _getImage();
           } else {
-            print('API not initialized yet.');
+            print('API not initialized ');
           }
         },
         tooltip: 'Select Image',
