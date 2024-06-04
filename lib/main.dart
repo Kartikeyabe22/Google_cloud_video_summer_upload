@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:image_picker/image_picker.dart';
+import 'package:video_player/video_player.dart';
+import 'package:video_compress/video_compress.dart';
 
 import 'api.dart';
 
@@ -21,11 +23,12 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  File? _image;
-  Uint8List? _imageBytes;
-  String? _imageName;
+  File? _video;
+  Uint8List? _videoBytes;
+  String? _videoName;
   final picker = ImagePicker();
   late CloudApi _api;
+  VideoPlayerController? _videoController;
 
   bool isUploaded = false;
   bool loading = false;
@@ -45,26 +48,19 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  // void saveImage() async {
-  //   if (_imageBytes != null) {
-  //     final response = await _api.save('test', _imageBytes!);
-  //     print(response.downloadLink);
-  //   }
-  // }
-
-  void _saveImage() async {
+  void _saveVideo() async {
     setState(() {
       loading = true;
     });
     try {
-      if (_imageBytes != null) {
-        final response = await _api.save(_imageName!, _imageBytes!);
-        print('Image uploaded successfully. Download link: ${response.downloadLink}');
+      if (_videoBytes != null) {
+        await _api.save(_videoName!, _videoBytes!);
+        print('Video uploaded successfully.');
       } else {
-        print('No image data available to upload.');
+        print('No video data available to upload.');
       }
     } catch (e) {
-      print('Error uploading image: $e');
+      print('Error uploading video: $e');
     }
     setState(() {
       loading = false;
@@ -72,21 +68,39 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-
-  void _getImage() async {
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+  void _getVideo() async {
+    final pickedFile = await picker.pickVideo(source: ImageSource.gallery);
 
     setState(() {
       if (pickedFile != null) {
-        print(pickedFile.path);
-        _image = File(pickedFile.path);
-        _imageBytes = _image!.readAsBytesSync();
-        _imageName = _image!.path.split('/').last;
+        _video = File(pickedFile.path);
+        _videoName = _video!.path.split('/').last;
         isUploaded = false;
+
+        _compressVideo(_video!).then((compressedVideo) {
+          setState(() {
+            _videoBytes = compressedVideo.readAsBytesSync();
+            _videoController = VideoPlayerController.file(compressedVideo)
+              ..initialize().then((_) {
+                setState(() {});
+                _videoController!.play();
+              });
+          });
+        });
       } else {
-        print('No Image Selected');
+        print('No Video Selected');
       }
     });
+  }
+
+  Future<File> _compressVideo(File videoFile) async {
+    // final info = await VideoCompress.compressVideo(
+    //   videoFile.path,
+    //   quality: VideoQuality.LowQuality,
+    //   deleteOrigin: false,
+    // );
+    // return info!.file!;
+    return videoFile;
   }
 
   @override
@@ -96,32 +110,35 @@ class _HomePageState extends State<HomePage> {
       body: Container(
         color: Colors.white,
         child: Center(
-          child: _imageBytes == null
-              ? Text('No Image selected')
+          child: _videoBytes == null
+              ? Text('No Video selected')
               : Stack(
             children: [
-              Image.memory(_imageBytes!),
-              if(loading)
+              if (_videoController != null && _videoController!.value.isInitialized)
+                AspectRatio(
+                  aspectRatio: _videoController!.value.aspectRatio,
+                  child: VideoPlayer(_videoController!),
+                ),
+              if (loading)
                 Center(
-                    child: CircularProgressIndicator(),
+                  child: CircularProgressIndicator(),
+                ),
+              isUploaded
+                  ? Center(
+                child: CircleAvatar(
+                  radius: 40,
+                  backgroundColor: Colors.green,
+                  child: Icon(
+                    Icons.check,
+                    color: Colors.white,
+                    size: 60,
                   ),
-               isUploaded
-                ? Center(
-                  child:CircleAvatar(
-                    radius: 40,
-                    backgroundColor: Colors.green,
-                    child: Icon(
-                      Icons.check,
-                      color: Colors.white,
-                      size: 60,
-                    ),
-                  ),
-                )
-
-            :  Align(
+                ),
+              )
+                  : Align(
                 alignment: Alignment.bottomCenter,
                 child: ElevatedButton(
-                  onPressed: _saveImage,
+                  onPressed: _saveVideo,
                   child: Text('Save to cloud'),
                 ),
               )
@@ -132,14 +149,20 @@ class _HomePageState extends State<HomePage> {
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           if (_api != null) {
-            _getImage();
+            _getVideo();
           } else {
-            print('API not initialized ');
+            print('API not initialized');
           }
         },
-        tooltip: 'Select Image',
+        tooltip: 'Select Video',
         child: Icon(Icons.add_a_photo),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _videoController?.dispose();
+    super.dispose();
   }
 }
