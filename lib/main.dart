@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
 import 'package:video_compress/video_compress.dart';
+import 'package:percent_indicator/circular_percent_indicator.dart';
 
 import 'api.dart';
 
@@ -32,6 +33,7 @@ class _HomePageState extends State<HomePage> {
 
   bool isUploaded = false;
   bool loading = false;
+  double _uploadProgress = 0.0;
 
   @override
   void initState() {
@@ -54,7 +56,7 @@ class _HomePageState extends State<HomePage> {
     });
     try {
       if (_videoBytes != null) {
-        await _api.save(_videoName!, _videoBytes!);
+        await _api.save(_videoName!, _videoBytes!, _updateProgress); // Pass update function
         print('Video uploaded successfully.');
       } else {
         print('No video data available to upload.');
@@ -68,13 +70,14 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+
   void _getVideo() async {
     final pickedFile = await picker.pickVideo(source: ImageSource.gallery);
 
     setState(() {
       if (pickedFile != null) {
         _video = File(pickedFile.path);
-        _videoName = _video!.path.split('/').last;
+        _videoName = _video!.path.split('/').last; // Assign video name here
         isUploaded = false;
 
         _compressVideo(_video!).then((compressedVideo) {
@@ -93,15 +96,18 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+
   Future<File> _compressVideo(File videoFile) async {
-    // final info = await VideoCompress.compressVideo(
-    //   videoFile.path,
-    //   quality: VideoQuality.LowQuality,
-    //   deleteOrigin: false,
-    // );
-    // return info!.file!;
+    // Compression code...
     return videoFile;
   }
+
+  void _updateProgress(double progress) {
+    setState(() {
+      _uploadProgress = progress;
+    });
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -121,7 +127,13 @@ class _HomePageState extends State<HomePage> {
                 ),
               if (loading)
                 Center(
-                  child: CircularProgressIndicator(),
+                  child: CircularPercentIndicator(
+                    radius: 60.0,
+                    lineWidth: 10.0,
+                    percent: _uploadProgress,
+                    center: Text((_uploadProgress * 100).toStringAsFixed(0) + "%"),
+                    progressColor: Colors.green,
+                  ),
                 ),
               isUploaded
                   ? Center(

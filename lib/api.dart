@@ -20,7 +20,8 @@ class CloudApi {
 
   Future<String> _initiateResumableUpload(String name) async {
     await _initializeClient();
-    final uri = Uri.parse('https://www.googleapis.com/upload/storage/v1/b/mybucket_12345/o?uploadType=resumable&name=$name');
+    final uri = Uri.parse(
+        'https://www.googleapis.com/upload/storage/v1/b/mybucket_12345/o?uploadType=resumable&name=$name');
     final response = await _client!.post(
       uri,
       headers: {
@@ -36,8 +37,8 @@ class CloudApi {
       throw Exception('Failed to initiate resumable upload: ${response.body}');
     }
   }
-
-  Future<void> _uploadChunks(String sessionUri, Uint8List fileBytes) async {
+  Future<void> _uploadChunks(
+      String sessionUri, Uint8List fileBytes, Function(double) progressCallback) async {
     int start = 0;
     int chunkSize = 256 * 1024; // 256 KB
     int end = chunkSize;
@@ -61,16 +62,21 @@ class CloudApi {
       } else if (response.statusCode == 308) {
         start = end;
         end += chunkSize;
+        double progress = end / totalSize;
+        if (progress > 1.0) progress = 1.0; // Ensure progress stays within 0.0 to 1.0
+        progressCallback(progress); // Report progress
       } else {
-        throw Exception('Failed to upload chunk: ${await response.stream.bytesToString()}');
+        throw Exception(
+            'Failed to upload chunk: ${await response.stream.bytesToString()}');
       }
     }
   }
 
-  Future<void> save(String name, Uint8List fileBytes) async {
+  Future<void> save(String name, Uint8List fileBytes,
+      Function(double) progressCallback) async {
     try {
       final sessionUri = await _initiateResumableUpload(name);
-      await _uploadChunks(sessionUri, fileBytes);
+      await _uploadChunks(sessionUri, fileBytes, progressCallback);
       print('Video uploaded successfully.');
     } catch (e) {
       print('Error in save method: $e');
